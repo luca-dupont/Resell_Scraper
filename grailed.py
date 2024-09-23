@@ -1,5 +1,6 @@
 import pandas as pd
 from selenium import webdriver
+from selenium.webdriver.common import options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support.select import Select
@@ -12,7 +13,8 @@ import time
 # BRAND = "number-n-ine"
 # BRAND = "rick-owens"
 # BRAND = "rick-owens"
-BRAND = "alpinestars"
+# BRAND = "alpinestars"
+BRAND = "prada"
 
 
 BASE_URL = f"https://www.grailed.com/designers/{BRAND}"
@@ -28,13 +30,13 @@ CHROME_OPTIONS = webdriver.ChromeOptions()
 LOAD_MAX_TIME = 5
 REFRESH_TIME = 10
 
-RUNNING_TIME = 20
+RUNNING_TIME = 1
 
 ITERATIONS = round(RUNNING_TIME/REFRESH_TIME)+1
 
-MAX_LISTINGS = 1000
+MAX_LISTINGS = 500
 
-def setup(options, url):
+def setup(options : options, url : str) -> webdriver :
     # Setup chrome driver
     driver = webdriver.Chrome(options=options)
     driver.get(url)
@@ -54,14 +56,14 @@ def setup(options, url):
         driver.quit()
         exit()
 
-def teardown(driver):
+def teardown(driver : webdriver):
     driver.quit()
     print("\nClosing browser")
 
-def write_as_csv(df, file_name):
+def write_as_csv(df : pd.DataFrame, file_name : str):
     df.to_csv(f'data/{file_name}', index=False)  
 
-def get_product_info(driver):
+def get_product_info(driver : webdriver) -> pd.DataFrame | None:
     try:
         driver.refresh()
         time.sleep(3)
@@ -126,10 +128,30 @@ def get_product_info(driver):
         print("No product info found")
         return None
 
-def scroll(driver, n) : 
+def scroll(driver : webdriver, n : int): 
     for i in range(n) :
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(0.35)
+
+# Keyword appears in product name
+def filter_product_name(product_info : pd.DataFrame, keywords : list) -> pd.DataFrame:
+    filtered = product_info.loc[product_info["product_name"].str.contains("|".join(keywords), case=False, na=False)]
+    return filtered
+# Brand name is one of the keywords
+def filter_product_brand(product_info : pd.DataFrame, brands : list) -> pd.DataFrame:
+    filtered = product_info.loc[product_info["brand"].isisn(brands)]
+    return filtered
+# Size is one of the keywords
+def filter_product_size(product_info : pd.DataFrame, sizes : list) -> pd.DataFrame:
+    filtered = product_info.loc[product_info["size"].isin(sizes)]
+    return filtered
+# Price is lower or higher than the given price
+def filter_product_price(product_info : pd.DataFrame, price : list, lower : bool = True) -> pd.DataFrame:
+    if lower:
+        filtered = product_info.loc[product_info["new_price"] <= price]
+    else:
+        filtered = product_info.loc[product_info["new_price"] >= price]
+    return filtered
 
 
 def main():
@@ -140,19 +162,12 @@ def main():
         for _ in range(ITERATIONS) :
             # Get page info
             product_info = get_product_info(driver)
-            product_info.sort_values(by="new_price", inplace=True)
 
-            # gats = product_info.loc[
-            #     product_info["product_name"].str.contains(
-            #         "GAT|German Army Trainer", case=False, na=False
-            #     )
-            # ]
-            # Get rows with sizes of 8.5,9, or 9.5
-            # sizes = gats.loc[gats["size"].str.contains("8.5|9|9.5", case=False, na=False)]
+            s_xs = filter_product_size(product_info, ["XS", "S"])
 
-            write_as_csv(product_info,DATA_FILE_NAME)
+            write_as_csv(s_xs,DATA_FILE_NAME)
             print(f"Data updated in {DATA_FILE_NAME}")
-            
+
             time.sleep(REFRESH_TIME)
 
     finally:
