@@ -8,29 +8,12 @@ from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import NoSuchElementException
 import time
 
-# BRAND = "mowalola"
-# BRAND = "number-n-ine"
-# BRAND = "rick-owens"
-# BRAND = "rick-owens"
-BRAND = "alpinestars"
+base_url = "https://www.farfetch.com/ca/shopping/men/acne-studios/items.aspx"
 
+product_xpath = '//div[@data-testid="product"]'
+sort_by_xpath = '//div[@data-testid="sort-by-button"]'
 
-BASE_URL = f"https://www.grailed.com/designers/{BRAND}"
-DATA_FILE_NAME = f"{BRAND}_data.csv"
-
-PRODUCT_XPATH = "//div[@class='feed-item']"
-DROP_DOWN_XPATH = "//*[@class='ais-SortBy-select']"
-NEWEST_CSS_VALUE = "Listing_by_date_added_production"
-LINKS_XPATH = '//div[@class="feed-item"]/a[@class="listing-item-link"]'
-
-CHROME_OPTIONS = webdriver.ChromeOptions()
-
-LOAD_MAX_TIME = 5
-REFRESH_TIME = 10
-
-RUNNING_TIME = 20
-
-ITERATIONS = round(RUNNING_TIME/REFRESH_TIME)+1
+chrome_options = webdriver.ChromeOptions()
 
 MAX_LISTINGS = 1000
 
@@ -40,12 +23,13 @@ def setup(options, url):
     driver.get(url)
 
     # Wait for 10 seconds for the page to load
-    wait = WebDriverWait(driver, LOAD_MAX_TIME)
+    time = 10
+    wait = WebDriverWait(driver, time)
 
     # Return driver if it loaded else terminate
     try:
         wait.until(
-            EC.visibility_of_element_located((By.XPATH, PRODUCT_XPATH))
+            EC.visibility_of_element_located((By.XPATH, product_xpath))
         )
         print("Page loaded\n")
         return driver
@@ -59,24 +43,23 @@ def teardown(driver):
     print("\nClosing browser")
 
 def write_as_csv(df, file_name):
-    df.to_csv(f'data/{file_name}', index=False)  
+    df.to_csv(f'data/{file_name}.csv', index=False)  
 
 def get_product_info(driver):
     try:
-        driver.refresh()
-        time.sleep(3)
-        # Get number of listings per page
-        product_info = driver.find_elements(By.XPATH, PRODUCT_XPATH)
+        # Get number of listings pr page
+        product_info = driver.find_elements(By.XPATH, product_xpath)
+        print([x.text for x in product_info])
         num_products_per_page = len(product_info)
 
         # Sort by newest
-        drop_down = Select(driver.find_element(By.XPATH, DROP_DOWN_XPATH))
-        drop_down.select_by_value(NEWEST_CSS_VALUE)
+        drop_down_menu = driver.find_element(By.XPATH, sort_by_xpath)
+        drop_down_menu.click()
 
         time.sleep(1)
 
         # Get listings from the page
-        product_info = driver.find_elements(By.XPATH, PRODUCT_XPATH)
+        product_info = driver.find_elements(By.XPATH, product_xpath)
 
         product_info = [x.text for x in product_info]
 
@@ -87,14 +70,16 @@ def get_product_info(driver):
         scroll(driver, num_scrolls)
         
         # Get listings again after scrolls
-        product_info = driver.find_elements(By.XPATH, PRODUCT_XPATH)
+        product_info = driver.find_elements(By.XPATH, product_xpath)
 
         # Get important fields from the listings
         product_info = [x.text.split("\n")[1:6] for x in product_info]
 
         # Get links to the listings
-        links = driver.find_elements(By.XPATH, LINKS_XPATH)
+        links = driver.find_elements(By.XPATH, product_xpath)
         links = [x.get_attribute('href') for x in links]
+
+        print(len(product_info))
 
         for id,product in enumerate(product_info):
             # Remove useless fields
@@ -116,7 +101,6 @@ def get_product_info(driver):
             # Add link to the product
             product.insert(0,links[id])
 
-        print(f"{len(product_info)} products found.")
         # Convert the list of lists to a dataframe
         df = pd.DataFrame(
             product_info, columns=["link","brand", "size", "product_name", "new_price", "old_price"]
@@ -129,31 +113,27 @@ def get_product_info(driver):
 def scroll(driver, n) : 
     for i in range(n) :
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(0.35)
+        time.sleep(0.3)
 
 
 def main():
     # Setup the WebDriver
-    driver = setup(CHROME_OPTIONS, BASE_URL)
+    driver = setup(chrome_options, base_url)
 
     try:
-        for _ in range(ITERATIONS) :
-            # Get page info
-            product_info = get_product_info(driver)
-            product_info.sort_values(by="new_price", inplace=True)
+        # Get page info
+        product_info = get_product_info(driver)
+        product_info.sort_values(by="new_price", inplace=True)
 
-            # gats = product_info.loc[
-            #     product_info["product_name"].str.contains(
-            #         "GAT|German Army Trainer", case=False, na=False
-            #     )
-            # ]
-            # Get rows with sizes of 8.5,9, or 9.5
-            # sizes = gats.loc[gats["size"].str.contains("8.5|9|9.5", case=False, na=False)]
+        # gats = product_info.loc[
+        #     product_info["product_name"].str.contains(
+        #         "GAT|German Army Trainer", case=False, na=False
+        #     )
+        # ]
+        # Get rows with sizes of 8.5,9, or 9.5
+        # sizes = gats.loc[gats["size"].str.contains("8.5|9|9.5", case=False, na=False)]
 
-            write_as_csv(product_info,DATA_FILE_NAME)
-            print(f"Data updated in {DATA_FILE_NAME}")
-            
-            time.sleep(REFRESH_TIME)
+        write_as_csv(product_info, "farfetch_data")
 
     finally:
         # Clean up and close the driver
