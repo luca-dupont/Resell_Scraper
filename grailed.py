@@ -163,9 +163,7 @@ def main():
             # Get page info
             product_info = get_product_info(driver)
 
-            s_xs = filter_product_size(product_info, ["XS", "S"])
-
-            write_as_csv(s_xs,DATA_FILE_NAME)
+            write_as_csv(product_info,DATA_FILE_NAME)
             print(f"Data updated in {DATA_FILE_NAME}")
 
             time.sleep(REFRESH_TIME)
