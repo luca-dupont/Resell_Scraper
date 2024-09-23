@@ -7,7 +7,7 @@ from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import NoSuchElementException
 import time
 
-base_url = "https://www.grailed.com/designers/issey-miyake"
+base_url = "https://www.grailed.com/designers/chrome-hearts"
 
 chrome_options = webdriver.ChromeOptions()
 # chrome_options.add_argument("--headless=new")
@@ -41,17 +41,23 @@ def get_product_info(driver):
         product_info = driver.find_elements(By.XPATH, "//div[@class='feed-item']")
         product_info = [x.text for x in product_info]
 
-        product_info = [x.split("\n")[1:5] for x in product_info]
+        product_info = [x.split("\n")[1:6] for x in product_info]
         for product in product_info:
             for field in product:
                 if "FREE SHIPPING" in field or "ago" in field or "See Similar" in field:
                     product.remove(field)
-            price = product[-1]
-            if "$" in price :
-                product[-1] = int(price.split("$")[1] )
+            if len(product) == 5 :
+                prices = (product[-2], product[-1])
+                for i in range(2) :
+                    if "$" in prices[i]:
+                        product[-(i+1)] = int(prices[i][1:])
+            else :
+                price = product[-1]
+                if "$" in price:
+                    product[-1] = int(price[1:])
 
         df = pd.DataFrame(
-            product_info, columns=["brand", "size", "product_name", "price"]
+            product_info, columns=["brand", "size", "product_name", "new_price", "old_price"]
         )
         return df
     except NoSuchElementException:
@@ -66,7 +72,7 @@ def main():
     try:
         # for _ in range(10):
         product_info = get_product_info(driver)
-        product_info.sort_values(by="price", inplace=True)
+        product_info.sort_values(by="new_price", inplace=True)
 
         # gats = product_info.loc[
         #     product_info["product_name"].str.contains(
