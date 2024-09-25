@@ -5,6 +5,7 @@ body, html {
     font-family: Arial, sans-serif;
     background-color: #f4f4f4;
     color: #333;
+    text-align: center;
 }
 
 /* Header Styling */
@@ -49,8 +50,8 @@ nav a:hover {
 /* Button Styling */
 .btn {
     display: inline-block;
-    padding: 0.5rem 1rem;
-    margin: 0.5rem 0;
+    padding: 0.6rem 1rem;
+    margin: 0.5rem 0.1;
     background-color: #007bff;
     color: #fff;
     border: none;

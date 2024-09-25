@@ -1,6 +1,5 @@
 import pandas as pd
 from selenium import webdriver
-from selenium.webdriver.common import options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support.select import Select
@@ -9,16 +8,6 @@ from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import NoSuchElementException
 import time
 
-# BRAND = "mowalola"
-# BRAND = "number-n-ine"
-# BRAND = "rick-owens"
-# BRAND = "rick-owens"
-# BRAND = "alpinestars"
-BRAND = "prada"
-
-
-BASE_URL = f"https://www.grailed.com/designers/{BRAND}"
-DATA_FILE_NAME = f"{BRAND}_data.csv"
 
 PRODUCT_XPATH = "//div[@class='feed-item']"
 DROP_DOWN_XPATH = "//*[@class='ais-SortBy-select']"
@@ -34,39 +23,31 @@ RUNNING_TIME = 1
 
 ITERATIONS = round(RUNNING_TIME/REFRESH_TIME)+1
 
-MAX_LISTINGS = 500
+driver = None
 
-def setup(options : options, url : str) -> webdriver :
-    # Setup chrome driver
-    driver = webdriver.Chrome(options=options)
-    driver.get(url)
+def setup() -> webdriver :
+    global driver
 
-    # Wait for 10 seconds for the page to load
-    wait = WebDriverWait(driver, LOAD_MAX_TIME)
-
-    # Return driver if it loaded else terminate
-    try:
-        wait.until(
-            EC.visibility_of_element_located((By.XPATH, PRODUCT_XPATH))
-        )
-        print("Page loaded\n")
-        return driver
-    except TimeoutException:
-        print("Timed out waiting for page to load")
-        driver.quit()
+    try :
+        # Start Chrome
+        driver = webdriver.Chrome(CHROME_OPTIONS)
+        print("\nChrome started\n")
+    except :
+        print("Error: Could not start Chrome")
         exit()
 
 def teardown(driver : webdriver):
     driver.quit()
-    print("\nClosing browser")
+    print("\nClosing browser\n")
 
 def write_as_csv(df : pd.DataFrame, file_name : str):
-    df.to_csv(f'data/{file_name}', index=False)  
+    df.to_csv(f'data/{file_name}.csv', index=False)  
 
-def get_product_info(driver : webdriver) -> pd.DataFrame | None:
+def get_product_info(driver : webdriver, max_listings : int) -> pd.DataFrame | None:
     try:
         driver.refresh()
-        time.sleep(3)
+        time.sleep(2)
+
         # Get number of listings per page
         product_info = driver.find_elements(By.XPATH, PRODUCT_XPATH)
         num_products_per_page = len(product_info)
@@ -83,7 +64,7 @@ def get_product_info(driver : webdriver) -> pd.DataFrame | None:
         product_info = [x.text for x in product_info]
 
         # Calculate number of scrolls
-        num_scrolls = round(MAX_LISTINGS/num_products_per_page)+1
+        num_scrolls = round(max_listings/num_products_per_page)+1
 
         # Scroll to the bottom of the page
         scroll(driver, num_scrolls)
@@ -100,33 +81,42 @@ def get_product_info(driver : webdriver) -> pd.DataFrame | None:
 
         for id,product in enumerate(product_info):
             # Remove useless fields
-            for field in product:
-                if "FREE SHIPPING" in field or "ago" in field or "See Similar" in field : product.remove(field)
+            for i,field in enumerate(product):
+                product_info[id][i] = field.lower()
+                field = field.lower()
+                if "free shipping" in field or "ago" in field or "similar" in field : 
+                    product_info[id].remove(field)
 
+            product = product_info[id]
             # Check if the product had an old price that is different from the new one
             # Convert prices to integers    
             if len(product) == 5 :
                 prices = (product[-1], product[-2])
                 for i in range(2) :
                     if "$" in prices[i]:
-                        product[-(i+1)] = int(prices[i][1:])
+                        product_info[id][-(i+1)] = int(prices[i][1:])
             else :
                 price = product[-1]
                 if "$" in price:
-                    product[-1] = int(price[1:])
+                    product_info[id][-1] = int(price[1:])
 
             # Add link to the product
-            product.insert(0,links[id])
+            product_info[id].insert(0,links[id])
 
-        print(f"{len(product_info)} products found.")
         # Convert the list of lists to a dataframe
         df = pd.DataFrame(
             product_info, columns=["link","brand", "size", "product_name", "new_price", "old_price"]
         )
+
+        if len(df) > max_listings :
+            df = df.head(max_listings)
+
+        print(f"{len(df)} products found before filters.")
+
         return df
     except NoSuchElementException:
         print("No product info found")
-        return None
+        return pd.DataFrame()
 
 def scroll(driver : webdriver, n : int): 
     for i in range(n) :
@@ -135,43 +125,43 @@ def scroll(driver : webdriver, n : int):
 
 # Keyword appears in product name
 def filter_product_name(product_info : pd.DataFrame, keywords : list) -> pd.DataFrame:
+    keywords = [x.lower() for x in keywords]
     filtered = product_info.loc[product_info["product_name"].str.contains("|".join(keywords), case=False, na=False)]
     return filtered
 # Brand name is one of the keywords
-def filter_product_brand(product_info : pd.DataFrame, brands : list) -> pd.DataFrame:
-    filtered = product_info.loc[product_info["brand"].isisn(brands)]
+def filter_product_brand(product_info : pd.DataFrame, brand : str) -> pd.DataFrame:
+    brand = brand.lower()
+
+    filtered = product_info.loc[product_info["brand"] == brand]
     return filtered
 # Size is one of the keywords
 def filter_product_size(product_info : pd.DataFrame, sizes : list) -> pd.DataFrame:
+    sizes = [x.lower() for x in sizes]
     filtered = product_info.loc[product_info["size"].isin(sizes)]
     return filtered
 # Price is lower or higher than the given price
-def filter_product_price(product_info : pd.DataFrame, price : list, lower : bool = True) -> pd.DataFrame:
+def filter_product_price(product_info : pd.DataFrame, price : int, lower : bool = True) -> pd.DataFrame:
     if lower:
         filtered = product_info.loc[product_info["new_price"] <= price]
     else:
         filtered = product_info.loc[product_info["new_price"] >= price]
     return filtered
 
+def get(brand : str, max_listings : int) -> pd.DataFrame:
+    global driver
 
-def main():
-    # Setup the WebDriver
-    driver = setup(CHROME_OPTIONS, BASE_URL)
+    url = f"https://www.grailed.com/designers/{brand}"
 
     try:
-        for _ in range(ITERATIONS) :
-            # Get page info
-            product_info = get_product_info(driver)
+        driver.set_window_position(10000, 10000)
+        driver.get(url)
 
-            write_as_csv(product_info,DATA_FILE_NAME)
-            print(f"Data updated in {DATA_FILE_NAME}")
-
-            time.sleep(REFRESH_TIME)
-
+        # Get page info
+        product_info = get_product_info(driver, max_listings)
+        return product_info
+    except:
+        print(f"Could not get page info")
+        return pd.DataFrame()
     finally:
         # Clean up and close the driver
         teardown(driver)
-
-
-if __name__ == "__main__":
-    main()
