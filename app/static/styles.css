@@ -112,3 +112,11 @@ footer {
         border-top: 1px solid #444;
     }
 }
+
+.small-input::placeholder {
+    font-size: 0.75rem;
+}
+
+.input::placeholder {
+    font-size: 1rem;
+}

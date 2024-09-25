@@ -25,7 +25,7 @@ ITERATIONS = round(RUNNING_TIME/REFRESH_TIME)+1
 
 driver = None
 
-def setup() -> webdriver :
+def setup() :
     global driver
 
     try :
@@ -149,6 +149,7 @@ def filter_product_price(product_info : pd.DataFrame, price : int, lower : bool 
 
 def get(brand : str, max_listings : int) -> pd.DataFrame:
     global driver
+    setup()
 
     url = f"https://www.grailed.com/designers/{brand}"
 

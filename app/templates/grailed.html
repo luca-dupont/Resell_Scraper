@@ -13,7 +13,7 @@
     <form action="" method="post">
         <div class="container">
             <input type="text" id="brand" name="brand" placeholder="Enter Brand" class='input'>
-            <input type="text" id="max-listings" name="max-listings" placeholder="Enter Max Listings" class='input'>
+            <input type="text" id="max-listings" name="max-listings" placeholder="Enter Max Listings (Max : 1000)" class='small-input'>
             <input type="text" id="sizes" name="sizes" placeholder="Enter Sizes" class='input'>
             <input type="text" id="keywords" name="keywords" placeholder="Enter Keywords" class='input'>
             <input type="text" id="brand-specification" name="brand-specification" placeholder="Enter Specific Brand" class='input'>
@@ -21,6 +21,7 @@
                 <i class="fa fa-search"></i>
             </button>
         </div>
+        {{ message|safe }}
     </form>
 
 </body>
