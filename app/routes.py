@@ -1,9 +1,11 @@
-from flask import Blueprint, render_template, request, redirect
+from flask import Blueprint, render_template, request
 import app.grailed as grailed
+import pandas as pd
 
 main = Blueprint('main', __name__)
 
-GRAILED_FILE_NAME = "grailed_data"
+GRAILED_PRODUCT_FILE_NAME = "grailed_product_data"
+GRAILED_SPECIFICS_FILE_NAME = "grailed_specific_data"
 
 EMPTY_FILTER = ['']
 
@@ -34,20 +36,20 @@ def grailed_page():
         keywords = [x.strip() for x in request.form.get('keywords').split(',')]
         specific_brand = request.form.get('brand-specification').strip()
 
-        df = grailed.get(brand, max_listings)
+        products = grailed.get(brand, max_listings)
 
-        if df.empty :
+        if products.empty :
             message = '<p style="color:red;">Make sure the brand is spelled correctly</p>'
             return render_template('grailed.html', message=message)
 
         if sizes != EMPTY_FILTER :
-            df = grailed.filter_product_size(df, sizes)
+            products = grailed.filter_product_size(products, sizes)
         if keywords != EMPTY_FILTER :
-            df = grailed.filter_product_name(df, keywords)
+            products = grailed.filter_product_name(products, keywords)
         if specific_brand != '' :
-            df = grailed.filter_product_brand(df, specific_brand)
+            products = grailed.filter_product_brand(products, specific_brand)
 
-        num_products = len(df)
+        num_products = len(products)
 
         if num_products == 0 :
             message = '<p style="color:red;">No products found for these filters</p>'
@@ -55,7 +57,11 @@ def grailed_page():
         
         print(f"{num_products} products found after filters.")
 
-        message = f'<p style="color:green;">{num_products} products found and saved to {GRAILED_FILE_NAME}.csv</p>'
-        grailed.write_as_csv(df, GRAILED_FILE_NAME)
+        message = f'<p style="color:green;">{num_products} products found and saved to {GRAILED_PRODUCT_FILE_NAME}.csv</p>'
+
+        specifics = grailed.get_specifics(products["link"].tolist())
+
+        grailed.write_as_csv(products, GRAILED_PRODUCT_FILE_NAME)
+        grailed.write_as_csv(specifics, GRAILED_SPECIFICS_FILE_NAME)
 
     return render_template('grailed.html', message=message)
