@@ -7,6 +7,9 @@ main = Blueprint('main', __name__)
 GRAILED_PRODUCT_FILE_NAME = "grailed_product_data"
 GRAILED_SPECIFICS_FILE_NAME = "grailed_specific_data"
 
+INVALID_BRAND_MESSAGE = '<p style="color:red;">Please enter a brand</p>'
+INVALID_NUM_LISTINGS_MESSAGE = '<p style="color:red;">Please enter a valid number of listings</p>'
+
 EMPTY_FILTER = ['']
 
 @main.route('/', methods=['GET'])
@@ -20,7 +23,7 @@ def grailed_page():
         brand = request.form.get('brand').lower().replace(' ','-')
         if not brand : 
             print("No brand entered")
-            message = '<p style="color:red;">Please enter a brand</p>'
+            message = INVALID_BRAND_MESSAGE
             return render_template('grailed.html', message=message)
         
         max_listings = request.form.get('max-listings')
@@ -29,7 +32,7 @@ def grailed_page():
         try :
             max_listings = int(max_listings)
         except :
-            message = '<p style="color:red;">Please enter a valid number of listings</p>'
+            message = INVALID_NUM_LISTINGS_MESSAGE
             return render_template('grailed.html', message=message)
 
         sizes = [x.strip() for x in request.form.get('sizes').split(',')]
