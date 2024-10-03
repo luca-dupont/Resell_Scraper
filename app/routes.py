@@ -1,6 +1,5 @@
 from flask import Blueprint, render_template, request
 import app.grailed as grailed
-import pandas as pd
 
 main = Blueprint('main', __name__)
 
@@ -11,6 +10,8 @@ INVALID_BRAND_MESSAGE = '<p style="color:red;">Please enter a brand</p>'
 INVALID_NUM_LISTINGS_MESSAGE = '<p style="color:red;">Please enter a valid number of listings</p>'
 
 EMPTY_FILTER = ['']
+
+SPECIFIC_COLUMNS = ['authenticated','rating','num_reviews','transaction_count','seller']
 
 @main.route('/', methods=['GET'])
 def home():
@@ -64,7 +65,8 @@ def grailed_page():
 
         specifics = grailed.get_specifics(products["link"].tolist())
 
+        products[SPECIFIC_COLUMNS] = specifics[SPECIFIC_COLUMNS]
+
         grailed.write_as_csv(products, GRAILED_PRODUCT_FILE_NAME)
-        grailed.write_as_csv(specifics, GRAILED_SPECIFICS_FILE_NAME)
 
     return render_template('grailed.html', message=message)

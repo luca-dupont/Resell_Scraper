@@ -6,7 +6,6 @@ from selenium.common.exceptions import NoSuchElementException
 import time
 from typing import List
 
-
 PRODUCT_XPATH = "//div[@class='feed-item']"
 DROP_DOWN_XPATH = "//*[@class='ais-SortBy-select']"
 NEWEST_CSS_VALUE = "Listing_by_date_added_production"
@@ -44,9 +43,9 @@ def setup_headless() :
     try :
         # Start Chrome
         driver = webdriver.Chrome(options=hl_options)
-        print("\nChrome started\n")
+        print("\nHeadless Chrome started\n")
     except :
-        print("Error: Could not start Chrome")
+        print("Error: Could not start Headless Chrome")
         exit()
 
 def teardown(driver : webdriver):
@@ -109,7 +108,7 @@ def get_product_info(driver : webdriver, max_listings : int) -> pd.DataFrame | N
                 price = product[-1]
                 if "$" in price:
                     product_info[id][-1] = int(price[1:])
-                product_info[id].append(None)
+                product_info[id].append("NaN")
 
             # Add link to the product
             product_info[id].insert(0,links[id])
@@ -118,6 +117,8 @@ def get_product_info(driver : webdriver, max_listings : int) -> pd.DataFrame | N
         df = pd.DataFrame(
             product_info, columns=["link","brand", "size", "product_name", "new_price", "old_price"]
         )
+
+        df.assign(authenticated="None", ratings="None", num_reviews="None", transaction_count="None", seller="None")
 
         if len(df) > max_listings :
             df = df.head(max_listings)
@@ -149,7 +150,6 @@ def get_product_specifics(driver : webdriver, product_url : str) -> pd.DataFrame
 
         product_specifics = pd.DataFrame(
             {
-                "link" : [product_url],
                 "authenticated" : [authenticated],
                 "rating" : [rating],
                 "num_reviews" : [num_reviews],
@@ -159,12 +159,18 @@ def get_product_specifics(driver : webdriver, product_url : str) -> pd.DataFrame
         )
         return product_specifics
         
-    except Exception as e:
+    except:
         print(f"Could not get product specifics for {product_url}")
-        return pd.DataFrame()
+        return pd.DataFrame({
+                "authenticated" : ["None"],
+                "rating" : ["None"],
+                "num_reviews" : ["None"],
+                "transaction_count" : ["None"],
+                "seller" : ["None"]
+            })
 
 def scroll(driver : webdriver, n : int): 
-    for i in range(n) :
+    for _ in range(n) :
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(0.35)
 
@@ -215,7 +221,7 @@ def get_specifics(urls : List[str]) -> pd.DataFrame:
     global driver
     setup_headless()
 
-    specifics = pd.DataFrame(columns=['link','authenticated','rating','num_reviews','transaction_count','seller'])
+    specifics = pd.DataFrame(columns=['authenticated','rating','num_reviews','transaction_count','seller'])
 
     try : 
         for url in urls :
